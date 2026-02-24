@@ -1,0 +1,7 @@
+{
+  "name": "News Nikwetu (newskikwetu.com)",
+  "description": "The official digital platform for News Nikwetu (newskikwetu.com), Kenya's leading modern news CMS featuring real-time updates, discussion forums, and professional editorial tools.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
