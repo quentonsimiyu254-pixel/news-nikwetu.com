@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
@@ -9,7 +8,7 @@ import { cmsService } from '../services/cmsService';
 import { Post } from '../types';
 import { motion } from 'motion/react';
 import { Calendar, User, Share2, Facebook, Twitter, Link as LinkIcon, ArrowLeft, MessageSquare, Mail } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 
 const Article: React.FC = () => {
@@ -22,21 +21,44 @@ const Article: React.FC = () => {
     const fetchPost = async () => {
       if (slug) {
         setLoading(true);
-        const p = await cmsService.getPostBySlug(slug);
-        if (p) {
-          setPost(p);
-          const allPosts = await cmsService.getPublishedPosts();
-          const relatedPosts = allPosts
-            .filter(rp => rp.category === p.category && rp.id !== p.id)
-            .slice(0, 3);
-          setRelated(relatedPosts);
+        try {
+          const p = await cmsService.getPostBySlug(slug);
+          if (p) {
+            setPost(p);
+            const allPosts = await cmsService.getPublishedPosts();
+            const relatedPosts = allPosts
+              .filter(rp => rp.category === p.category && rp.id !== p.id)
+              .slice(0, 3);
+            setRelated(relatedPosts);
+          }
+        } catch (err) {
+          console.error("Fetch error:", err);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
     };
     fetchPost();
     window.scrollTo(0, 0);
   }, [slug]);
+
+  // SAFE DATE FORMATTING logic to prevent RangeError
+  const formattedDate = useMemo(() => {
+    if (!post) return '';
+    const rawDate = post.publishedAt || (post as any).created_at || (post as any).published_at;
+    const dateObj = new Date(rawDate);
+    
+    if (!rawDate || !isValid(dateObj)) {
+      return 'Recently Published';
+    }
+    return format(dateObj, 'MMMM d, yyyy');
+  }, [post]);
+
+  const readTime = useMemo(() => {
+    if (!post?.content) return 0;
+    const words = post.content.split(/\s+/).length;
+    return Math.ceil(words / 200);
+  }, [post?.content]);
 
   const handleShare = (platform: string) => {
     const url = window.location.href;
@@ -66,6 +88,7 @@ const Article: React.FC = () => {
       <Layout>
         <div className="flex flex-col items-center justify-center h-96 gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Story...</p>
         </div>
       </Layout>
     );
@@ -90,8 +113,8 @@ const Article: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8">
           <motion.article 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
             {/* Breadcrumbs */}
@@ -110,8 +133,8 @@ const Article: React.FC = () => {
               <div className="flex flex-wrap items-center justify-between gap-6 py-6 border-y border-gray-100">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">
-                      {post.author[0]}
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase">
+                      {post.author?.[0] || 'A'}
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900">{post.author}</p>
@@ -121,17 +144,12 @@ const Article: React.FC = () => {
                   <div className="hidden sm:block h-8 w-px bg-gray-100"></div>
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Published</span>
-                    <span className="text-sm font-medium text-slate-600">{format(new Date(post.publishedAt), 'MMMM d, yyyy')}</span>
-                  </div>
-                  <div className="hidden sm:block h-8 w-px bg-gray-100"></div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comments</span>
-                    <span className="text-sm font-medium text-slate-600">{cmsService.getComments(post.id).length}</span>
+                    <span className="text-sm font-medium text-slate-600">{formattedDate}</span>
                   </div>
                   <div className="hidden sm:block h-8 w-px bg-gray-100"></div>
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Read Time</span>
-                    <span className="text-sm font-medium text-slate-600">{Math.ceil((post.content.split(/\s+/).length) / 200)} min</span>
+                    <span className="text-sm font-medium text-slate-600">{readTime} min</span>
                   </div>
                 </div>
 
@@ -145,30 +163,33 @@ const Article: React.FC = () => {
             </div>
 
             {/* Featured Image */}
-            <div className="rounded-3xl overflow-hidden shadow-xl">
+            <div className="rounded-3xl overflow-hidden shadow-xl bg-gray-100 aspect-video">
               <img 
                 src={post.featuredImage} 
                 alt={post.title} 
-                className="w-full h-auto object-cover"
+                className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
+                onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1200x675?text=Image+Unavailable'; }}
               />
             </div>
 
             {/* Content */}
             <div className="max-w-3xl mx-auto lg:mx-0">
-              <div className="markdown-body">
+              <div className="prose prose-slate prose-lg max-w-none">
                 <ReactMarkdown>{post.content}</ReactMarkdown>
               </div>
             </div>
 
             {/* Tags */}
-            <div className="flex flex-wrap gap-2 pt-8 border-t border-gray-100">
-              {post.tags.map(tag => (
-                <span key={tag} className="bg-gray-100 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
-                  #{tag}
-                </span>
-              ))}
-            </div>
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-8 border-t border-gray-100">
+                {post.tags.map(tag => (
+                  <span key={tag} className="bg-gray-100 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Comments Section */}
             <Comments postId={post.id} />
