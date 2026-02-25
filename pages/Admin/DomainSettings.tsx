@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { cmsService } from '../../services/cmsService';
+import { supabase } from '../../services/supabase';
 import { DomainSettings as IDomainSettings } from '../../types';
 import { 
   ArrowLeft, 
@@ -13,7 +13,8 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronRight,
-  Save
+  Save,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -21,44 +22,71 @@ const DomainSettings: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [settings, setSettings] = useState<IDomainSettings | null>(null);
 
   useEffect(() => {
-    const auth = localStorage.getItem('nikwetu_auth');
-    if (!auth) {
-      navigate('/admin');
-      return;
-    }
-    setSettings(cmsService.getDomainSettings());
+    const checkAuthAndLoad = async () => {
+      // 1. Real Auth Check
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/admin');
+        return;
+      }
+
+      // 2. FIXED: Await the Promise from cmsService
+      try {
+        const data = await cmsService.getDomainSettings();
+        setSettings(data);
+      } catch (error) {
+        console.error("Failed to load domain settings", error);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
+    checkAuthAndLoad();
   }, [navigate]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (settings) {
       setLoading(true);
-      cmsService.saveDomainSettings(settings);
-      setTimeout(() => {
-        setLoading(false);
+      try {
+        await cmsService.saveDomainSettings(settings);
         alert('Domain settings updated successfully!');
-      }, 500);
+      } catch (error) {
+        alert('Failed to save settings.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setVerifying(true);
-    setTimeout(() => {
-      if (settings) {
-        const updated = {
-          ...settings,
-          isConfigured: true,
-          sslStatus: 'active' as const,
-          lastVerified: new Date().toISOString()
-        };
-        setSettings(updated);
-        cmsService.saveDomainSettings(updated);
-      }
-      setVerifying(false);
-    }, 2000);
+    // Simulate API delay for DNS verification
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    if (settings) {
+      const updated = {
+        ...settings,
+        isConfigured: true,
+        sslStatus: 'active' as const,
+        lastVerified: new Date().toISOString()
+      };
+      setSettings(updated);
+      await cmsService.saveDomainSettings(updated);
+    }
+    setVerifying(false);
   };
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="text-primary animate-spin" size={40} />
+      </div>
+    );
+  }
 
   if (!settings) return null;
 
@@ -68,7 +96,11 @@ const DomainSettings: React.FC = () => {
       <nav className="bg-slate-900 text-white px-6 py-5 sticky top-0 z-50 shadow-2xl">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <Link to="/admin/dashboard" className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all">
+            <Link 
+              to="/admin/dashboard" 
+              title="Back to Dashboard"
+              className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-all"
+            >
               <ArrowLeft size={20} />
             </Link>
             <div>
@@ -85,9 +117,7 @@ const DomainSettings: React.FC = () => {
             disabled={loading}
             className="bg-primary text-white px-8 py-2.5 rounded-xl font-black text-sm hover:bg-primary-dark transition-all shadow-xl shadow-primary/20 disabled:opacity-50 flex items-center gap-2 uppercase tracking-widest"
           >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : <Save size={18} />}
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             Save Changes
           </button>
         </div>
@@ -114,16 +144,19 @@ const DomainSettings: React.FC = () => {
                     </span>
                   )}
                   <span className="text-slate-300">•</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last verified: {new Date(settings.lastVerified).toLocaleDateString()}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Last verified: {new Date(settings.lastVerified).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
             </div>
             <button 
               onClick={handleVerify}
               disabled={verifying}
+              title="Verify DNS Records"
               className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              {verifying ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              <RefreshCw size={16} className={verifying ? "animate-spin" : ""} />
               Verify DNS
             </button>
           </div>
@@ -153,7 +186,7 @@ const DomainSettings: React.FC = () => {
                   value={settings.dnsProvider}
                   onChange={(e) => setSettings({ ...settings, dnsProvider: e.target.value })}
                   className="w-full bg-gray-50 px-4 py-4 rounded-2xl border border-gray-100 outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all font-bold text-slate-700"
-                  placeholder="e.g. GoDaddy, Namecheap"
+                  placeholder="e.g. GoDaddy, Cloudflare"
                 />
               </div>
             </div>
@@ -192,7 +225,7 @@ const DomainSettings: React.FC = () => {
         <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white space-y-8">
           <div className="space-y-2">
             <h3 className="text-2xl font-black uppercase tracking-tight">DNS Configuration</h3>
-            <p className="text-slate-400 text-sm">Point your domain to our servers by adding these records to your DNS provider.</p>
+            <p className="text-slate-400 text-sm">Point your domain to our servers by adding these records.</p>
           </div>
 
           <div className="space-y-4">
@@ -229,7 +262,13 @@ const DomainSettings: React.FC = () => {
 
           <div className="pt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
             <ExternalLink size={14} />
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="hover:text-white transition-colors underline underline-offset-4">
+            {/* Added rel="noopener noreferrer" for security */}
+            <a 
+              href="https://vercel.com/docs/concepts/projects/domains/custom-domains" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-white transition-colors underline underline-offset-4"
+            >
               View full deployment documentation
             </a>
           </div>

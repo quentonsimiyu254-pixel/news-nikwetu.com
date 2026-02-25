@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { cmsService } from '../../services/cmsService';
+import { supabase } from '../../services/supabase';
 import { Post } from '../../types';
 import { 
   LayoutDashboard, 
@@ -12,31 +12,41 @@ import {
   TrendingUp, 
   CheckCircle, 
   Clock, 
-  MoreVertical, 
   Edit, 
   Trash2, 
   Eye,
   Search,
-  Globe
+  Globe,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const AdminDashboard: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const auth = localStorage.getItem('nikwetu_auth');
-    if (!auth) {
-      navigate('/admin');
-      return;
-    }
-    const fetchPosts = async () => {
-      const allPosts = await cmsService.getPosts();
-      setPosts(allPosts);
+    const checkAuthAndFetch = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/admin');
+        return;
+      }
+
+      try {
+        const allPosts = await cmsService.getPosts();
+        setPosts(allPosts);
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchPosts();
+
+    checkAuthAndFetch();
   }, [navigate]);
 
   const handleDelete = async (id: string) => {
@@ -47,22 +57,39 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('nikwetu_auth');
     navigate('/admin');
   };
 
+  // Helper to handle snake_case from DB vs camelCase in types
+  const getPostStatus = (p: any) => ({
+    isPublished: p.is_published ?? p.isPublished,
+    isTrending: p.is_trending ?? p.isTrending,
+    publishedAt: p.published_at ?? p.publishedAt,
+    featuredImage: p.featured_image ?? p.featuredImage
+  });
+
   const stats = {
     total: posts.length,
-    published: posts.filter(p => p.isPublished).length,
-    drafts: posts.filter(p => !p.isPublished).length,
-    trending: posts.filter(p => p.isTrending).length
+    published: posts.filter(p => getPostStatus(p).isPublished).length,
+    drafts: posts.filter(p => !getPostStatus(p).isPublished).length,
+    trending: posts.filter(p => getPostStatus(p).isTrending).length
   };
 
   const filteredPosts = posts.filter(p => 
     p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="text-primary animate-spin" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -88,14 +115,15 @@ const AdminDashboard: React.FC = () => {
           <Link to="/admin/domain" className="flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
             <Globe size={20} /> Domain Settings
           </Link>
-          <Link to="/" className="flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+          <Link to="/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
             <ExternalLink size={20} /> View Website
           </Link>
         </nav>
 
         <button 
           onClick={handleLogout}
-          className="mt-auto flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 hover:text-white hover:bg-red-500/10 hover:text-red-500 transition-all"
+          title="Sign out of admin panel"
+          className="mt-auto flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 hover:bg-red-500/10 hover:text-red-500 transition-all"
         >
           <LogOut size={20} /> Logout
         </button>
@@ -107,11 +135,9 @@ const AdminDashboard: React.FC = () => {
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">Dashboard</h1>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-slate-500 font-medium">Manage your news content and reporters.</p>
+              <p className="text-slate-500 font-medium">Manage your news content.</p>
               <span className="text-slate-300">•</span>
-              <Link to="/admin/domain" className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
-                <Globe size={12} /> Domain: newskikwetu.com
-              </Link>
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary">Live Database</span>
             </div>
           </div>
           <Link to="/admin/editor" className="bg-primary text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-primary/20 hover:bg-primary-dark transition-all flex items-center gap-2 uppercase tracking-widest text-sm">
@@ -168,18 +194,22 @@ const AdminDashboard: React.FC = () => {
                   <th className="px-8 py-5">Story Details</th>
                   <th className="px-8 py-5">Category</th>
                   <th className="px-8 py-5">Status</th>
-                  <th className="px-8 py-5">Published</th>
+                  <th className="px-8 py-5">Published At</th>
                   <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredPosts.length > 0 ? (
-                  filteredPosts.map(post => (
+                {filteredPosts.map(post => {
+                  const data = getPostStatus(post);
+
+                  return (
                     <tr key={post.id} className="hover:bg-gray-50/30 transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 shadow-sm">
-                            <img src={post.featuredImage} alt="" className="w-full h-full object-cover" />
+                          <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-gray-100">
+                            {data.featuredImage && (
+                              <img src={data.featuredImage} alt="" className="w-full h-full object-cover" />
+                            )}
                           </div>
                           <div className="space-y-1">
                             <p className="font-bold text-slate-900 line-clamp-1 group-hover:text-primary transition-colors">{post.title}</p>
@@ -191,7 +221,7 @@ const AdminDashboard: React.FC = () => {
                         <span className="text-[10px] font-black bg-slate-100 px-3 py-1.5 rounded-lg text-slate-600 uppercase tracking-wider">{post.category}</span>
                       </td>
                       <td className="px-8 py-6">
-                        {post.isPublished ? (
+                        {data.isPublished ? (
                           <span className="inline-flex items-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-widest bg-green-50 px-3 py-1.5 rounded-lg">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Published
                           </span>
@@ -202,33 +232,38 @@ const AdminDashboard: React.FC = () => {
                         )}
                       </td>
                       <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-500">{new Date(post.publishedAt).toLocaleDateString()}</p>
+                        <p className="text-sm font-bold text-slate-500">
+                          {data.publishedAt ? new Date(data.publishedAt).toLocaleDateString() : 'Not published'}
+                        </p>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex justify-end gap-2">
-                          <Link to={`/article/${post.slug}`} target="_blank" className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all" title="View">
+                          <Link 
+                            to={`/article/${post.slug}`} 
+                            title="View article"
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                          >
                             <Eye size={18} />
                           </Link>
-                          <Link to={`/admin/editor/${post.id}`} className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Edit">
+                          <Link 
+                            to={`/admin/editor/${post.id}`} 
+                            title="Edit article"
+                            className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                          >
                             <Edit size={18} />
                           </Link>
-                          <button onClick={() => handleDelete(post.id)} className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Delete">
+                          <button 
+                            onClick={() => handleDelete(post.id)} 
+                            title="Delete article"
+                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          >
                             <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-8 py-24 text-center">
-                      <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <FileText size={32} className="text-slate-200" />
-                      </div>
-                      <p className="text-slate-400 font-bold">No stories found matching your criteria.</p>
-                    </td>
-                  </tr>
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>

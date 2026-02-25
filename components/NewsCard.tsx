@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, User, ArrowRight } from 'lucide-react';
 import { Post } from '../types';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isValid } from 'date-fns';
 
 interface NewsCardProps {
   post: Post;
@@ -11,6 +10,22 @@ interface NewsCardProps {
 }
 
 const NewsCard: React.FC<NewsCardProps> = ({ post, variant = 'vertical' }) => {
+  // Helper to prevent "Invalid time value" crash
+  const safeFormatDistance = (dateValue: any) => {
+    try {
+      // Fallback for different naming conventions (camelCase vs snake_case)
+      const rawDate = dateValue || (post as any).created_at || (post as any).published_at;
+      const date = new Date(rawDate);
+      
+      if (!rawDate || !isValid(date)) {
+        return 'Recently';
+      }
+      return `${formatDistanceToNow(date)} ago`;
+    } catch (error) {
+      return 'Recently';
+    }
+  };
+
   if (variant === 'featured') {
     return (
       <Link 
@@ -45,7 +60,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ post, variant = 'vertical' }) => {
             </div>
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-primary" />
-              <span>{formatDistanceToNow(new Date(post.publishedAt))} ago</span>
+              <span>{safeFormatDistance(post.publishedAt)}</span>
             </div>
           </div>
         </div>
@@ -79,7 +94,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ post, variant = 'vertical' }) => {
           </p>
           <div className="flex items-center gap-4 text-slate-400 text-xs pt-2">
             <span className="flex items-center gap-1"><User size={12} /> {post.author}</span>
-            <span className="flex items-center gap-1"><Calendar size={12} /> {formatDistanceToNow(new Date(post.publishedAt))} ago</span>
+            <span className="flex items-center gap-1"><Calendar size={12} /> {safeFormatDistance(post.publishedAt)}</span>
           </div>
         </div>
       </Link>
@@ -130,7 +145,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ post, variant = 'vertical' }) => {
       <div className="p-6 flex flex-col flex-grow">
         <div className="flex items-center gap-4 text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-4">
           <span className="flex items-center gap-1"><User size={12} className="text-primary" /> {post.author}</span>
-          <span className="flex items-center gap-1"><Calendar size={12} className="text-primary" /> {formatDistanceToNow(new Date(post.publishedAt))} ago</span>
+          <span className="flex items-center gap-1"><Calendar size={12} className="text-primary" /> {safeFormatDistance(post.publishedAt)}</span>
         </div>
         <Link to={`/article/${post.slug}`}>
           <h3 className="text-xl font-bold mb-3 leading-tight group-hover:text-primary transition-colors line-clamp-2">

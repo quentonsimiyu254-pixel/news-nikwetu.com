@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Use type casting to 'any' to stop TypeScript from complaining about .env
+const env = (import.meta as any).env;
+
+const SUPABASE_URL = env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  console.error(
+    'CONNECTION ERROR: Supabase environment variables are missing. ' +
+    'Check Vercel Dashboard -> Settings -> Environment Variables.'
+  );
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create a single supabase client for entire app
+export const supabase = createClient(
+  SUPABASE_URL || '', 
+  SUPABASE_ANON_KEY || ''
+);

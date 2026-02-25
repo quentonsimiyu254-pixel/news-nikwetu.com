@@ -1,10 +1,16 @@
+import { Category } from './types';
 
-import { Post, Category } from './types';
+// Bypass TypeScript error for Vite environment variables
+const env = (import.meta as any).env;
 
-// Environment-driven values (Vite exposes vars prefixed with VITE_)
-export const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'News Nikwetu';
-export const API_URL = import.meta.env.VITE_API_URL || '';
-export const GA_ID = import.meta.env.VITE_GA_ID || '';
+// Environment-driven values
+export const APP_TITLE = env.VITE_APP_TITLE || 'News Nikwetu';
+export const API_URL = env.VITE_API_URL || '';
+export const GA_ID = env.VITE_GA_ID || '';
+
+// Supabase config (handy to have here if you reference them elsewhere)
+export const SUPABASE_URL = env.VITE_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || '';
 
 export const CATEGORIES: Category[] = [
   'Politics',
@@ -14,4 +20,3 @@ export const CATEGORIES: Category[] = [
   'Entertainment',
   'Local News'
 ];
-
