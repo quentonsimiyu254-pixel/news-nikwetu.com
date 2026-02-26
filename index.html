@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>News Nikwetu - Latest Breaking News</title>
 
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
@@ -22,7 +23,7 @@
       theme: {
         extend: {
           colors: {
-            primary: '#0ea5e9', // Adjust this to match your actual primary brand color
+            primary: '#0ea5e9',
           }
         }
       }
@@ -31,32 +32,40 @@
 
   <style>
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     h1,
     h2,
     h3,
     .serif {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Playfair Display', Georgia, Cambria, "Times New Roman", Times, serif;
     }
 
-    /* Standard CSS Line Clamping */
-    .line-clamp-2 {
+    /* Standardized Cross-Browser Line Clamping */
+    .line-clamp-2,
+    .line-clamp-3 {
       display: -webkit-box;
-      -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+
+    .line-clamp-2 {
+      -webkit-line-clamp: 2;
+      /* Modern Standard Fix */
+      line-clamp: 2;
+      max-height: 3em;
     }
 
     .line-clamp-3 {
-      display: -webkit-box;
       -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      /* Modern Standard Fix */
+      line-clamp: 3;
+      max-height: 4.5em;
     }
 
-    /* Basic CSS for the loading spinner before React takes over */
     #root:empty {
       display: flex;
       align-items: center;
@@ -91,12 +100,22 @@
         "react-router-dom": "https://esm.sh/react-router-dom@7.1.0"
       }
     }
-    </script>
+  </script>
+
   <link rel="stylesheet" href="/index.css">
 </head>
 
 <body class="bg-gray-50 text-slate-900">
+  <noscript>
+    <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
+      <h2>JavaScript Required</h2>
+      <p>We're sorry, but News Nikwetu requires JavaScript to function properly. Please enable it in your browser
+        settings.</p>
+    </div>
+  </noscript>
+
   <div id="root"></div>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

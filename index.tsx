@@ -1,37 +1,42 @@
+
+/**
+ * POLYFILLS: Universal Compatibility
+ * Must be at the very top to ensure libraries like react-markdown 
+ * find these methods during their initial evaluation.
+ */
+(function applyPolyfills() {
+  if (typeof (Object as any).hasOwn !== 'function') {
+    Object.defineProperty(Object, 'hasOwn', {
+      value: function (object: any, property: PropertyKey) {
+        if (object == null) {
+          throw new TypeError("Cannot convert undefined or null to object");
+        }
+        return Object.prototype.hasOwnProperty.call(object, property);
+      },
+      configurable: true,
+      enumerable: false,
+      writable: true
+    });
+  }
+})();
+
 import React from 'react';
+// @ts-ignore // react-dom/client has no bundled typings in this environment
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-/**
- * POLYFILL: Object.hasOwn
- * Fixes "Object.hasOwn is not a function" error in react-markdown 
- * and other modern ESM libraries.
- */
-if (!Object.hasOwn) {
-  Object.defineProperty(Object, 'hasOwn', {
-    value: function (object: any, property: PropertyKey) {
-      if (object == null) {
-        throw new TypeError("Cannot convert undefined or null to object");
-      }
-      return Object.prototype.hasOwnProperty.call(object, property);
-    },
-    configurable: true,
-    enumerable: false,
-    writable: true
-  });
-}
-
+// Container element selection
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  console.error("Critical Error: Root element not found. Check index.html for <div id='root'></div>");
+} else {
+  // TypeScript will now recognize createRoot thanks to the reference tag above
+  const root = ReactDOM.createRoot(rootElement);
+  
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
-
-// Optional: Clear any existing content if using HMR
-const root = ReactDOM.createRoot(rootElement);
-
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);

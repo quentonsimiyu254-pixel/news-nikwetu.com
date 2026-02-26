@@ -1,29 +1,35 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
+    /* Compatibility & Target */
+    "target": "ES2020", 
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
     "moduleResolution": "bundler",
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "allowJs": true,
     "jsx": "react-jsx",
+
+    /* Strictness & Reliability */
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    
+    /* Path Mapping - Matches your Vite alias */
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+
+    /* Environment Support */
+    "types": ["node", "vite/client"],
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Decorators (if you use them for things like Supabase logic) */
+    "experimentalDecorators": true,
+    "useDefineForClassFields": true
+  },
+  "include": ["**/*", "vite.config.ts"],
+  "exclude": ["node_modules", "dist"]
 }
