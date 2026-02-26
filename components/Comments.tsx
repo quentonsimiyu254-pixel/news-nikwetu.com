@@ -17,9 +17,15 @@ const Comments: React.FC<CommentsProps> = ({ postId }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchComments = () => {
-      const fetchedComments = cmsService.getComments(postId);
-      setComments(fetchedComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    const fetchComments = async () => {
+      try {
+        const fetched = await cmsService.getComments(postId);
+        const arr = Array.isArray(fetched) ? fetched : [];
+        const sorted = arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setComments(sorted);
+      } catch (err) {
+        console.error('Error fetching comments', err);
+      }
     };
     fetchComments();
   }, [postId]);
