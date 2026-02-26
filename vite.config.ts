@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0', // Accessible on your local network
-      strictPort: true,
+      strictPort: false,
       hmr: {
         // Helps with HMR stability when using host 0.0.0.0
         clientPort: 3000,
